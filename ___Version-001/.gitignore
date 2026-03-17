@@ -1,0 +1,29 @@
+# multimodal-rag/.gitignore
+
+# Secrets
+.env
+
+# Media (hochgeladene Dateien — werden nach Processing gelöscht)
+multimodal-rag/media/*
+!multimodal-rag/media/.gitkeep
+
+# Datenbank-Daten
+multimodal-rag/db/*
+!multimodal-rag/db/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db

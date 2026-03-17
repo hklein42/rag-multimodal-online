@@ -1,0 +1,32 @@
+# multimodal-rag/requirements.txt
+ 
+# ── Streamlit ────────────────────────────────────────────────────────────────
+streamlit>=1.35.0
+ 
+# ── Embedding: Google Gemini (neue SDK — google-generativeai ist deprecated) ─
+google-genai>=1.0.0
+ 
+# ── Reasoning: OpenAI o4-mini ────────────────────────────────────────────────
+openai>=1.30.0
+ 
+# ── Datenbank: pgvector ──────────────────────────────────────────────────────
+psycopg2-binary>=2.9.9
+pgvector>=0.2.5
+ 
+# ── Umgebungsvariablen ───────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+ 
+# ── PDF-Chunking ─────────────────────────────────────────────────────────────
+PyMuPDF>=1.24.0
+ 
+# ── Audio-Chunking (benötigt ffmpeg als System-Binary im Container) ───────────
+pydub>=0.25.1
+ 
+# ── Video-Chunking läuft direkt via ffmpeg subprocess — kein moviepy nötig ───
+ 
+# ── Bild-Verarbeitung ────────────────────────────────────────────────────────
+Pillow>=10.0.0
+ 
+# ── Numerisch ────────────────────────────────────────────────────────────────
+numpy>=1.26.0
+ 
