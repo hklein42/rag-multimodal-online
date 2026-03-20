@@ -1,29 +1,38 @@
 # multimodal-rag/requirements.txt
-
+ 
 # ── Streamlit ────────────────────────────────────────────────────────────────
 streamlit>=1.40.0
-
+ 
 # ── Google Gemini (Embedding + Reasoning Flash Lite) ─────────────────────────
 google-genai>=1.0.0
-
+ 
 # ── OpenAI (Whisper-Transkription + optionales o4-mini Reasoning) ─────────────
 openai>=1.60.0
-
+ 
 # ── Datenbank ────────────────────────────────────────────────────────────────
 psycopg2-binary>=2.9.9
 pgvector>=0.2.5
-
+ 
 # ── Umgebungsvariablen ───────────────────────────────────────────────────────
 python-dotenv>=1.0.0
-
+ 
 # ── PDF-Chunking ─────────────────────────────────────────────────────────────
 PyMuPDF>=1.24.0
-
+ 
 # ── Audio-Chunking + Whisper (benötigt ffmpeg im Container) ──────────────────
 pydub>=0.25.1
-
+ 
 # ── Video: ffmpeg subprocess — kein moviepy ───────────────────────────────────
-
+ 
 # ── Bild + Normalisierung ────────────────────────────────────────────────────
 Pillow>=10.0.0
 numpy>=1.26.0
+ 
+pandas>=2.0.0
+ 
+# ── Visualisierung (3dv.py) ───────────────────────────────────────────────────
+umap-learn>=0.5.6
+plotly>=5.20.0
+pandas>=2.0.0
+kaleido>=0.2.1
+ 

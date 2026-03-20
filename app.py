@@ -100,6 +100,20 @@ with st.sidebar:
     )
 
     st.divider()
+    st.link_button(
+        "🔬 RAG Visualisierung öffnen",
+        url="http://localhost:8502",
+        use_container_width=True,
+        help="3D Vektor-Map · DB-Statistiken · RAG Erklärer",
+    )
+    st.link_button(
+        "🧠 Transformer Erklärer öffnen",
+        url="http://localhost:8503",
+        use_container_width=True,
+        help="Interaktive Transformer-Visualisierung von poloclub.github.io",
+    )
+
+    st.divider()
     st.subheader("📊 Datenbank")
     try:
         stats = get_stats()
@@ -392,10 +406,7 @@ with tab_history:
         selected_id = st.selectbox(
             "Session wählen",
             options=[s["id"] for s in sessions],
-            format_func=lambda i: (
-                f"{session_labels[i]}  —  "
-                f"{session_dates[i].strftime('%Y-%m-%d %H:%M:%S')}"
-            ),
+            format_func=lambda i: session_labels[i],
         )
 
         # ── Session-Aktionen ───────────────────────────────────────────────
@@ -444,89 +455,104 @@ with tab_history:
 
         st.divider()
 
-        # ── Nachrichten anzeigen ───────────────────────────────────────────
-        messages = get_messages(selected_id, ascending=ascending)
+        # ── Nachrichten als Paare (Frage → Antwort) ──────────────────────
+        messages = get_messages(selected_id, ascending=True)  # immer chronologisch laden
 
         if not messages:
             st.caption("Keine Nachrichten in dieser Session.")
         else:
-            st.caption(f"{len(messages)} Nachrichten · Sortierung: {sort_order}")
+            # Nachrichten zu Paaren gruppieren: user + assistant
+            pairs = []
+            i = 0
+            while i < len(messages):
+                if messages[i]["role"] == "user":
+                    user_msg = messages[i]
+                    asst_msg = None
+                    if i + 1 < len(messages) and messages[i+1]["role"] == "assistant":
+                        asst_msg = messages[i + 1]
+                        i += 2
+                    else:
+                        i += 1
+                    pairs.append((user_msg, asst_msg))
+                else:
+                    # Einzelne Assistenten-Nachricht ohne Frage
+                    pairs.append((None, messages[i]))
+                    i += 1
 
-            for msg in messages:
-                role    = msg["role"]
-                content = msg["content"]
-                sources = msg.get("sources") or []
-                ts_msg  = msg["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+            # Sortierung: Paare als Einheit umkehren — Frage bleibt immer vor Antwort
+            if not ascending:
+                pairs = list(reversed(pairs))
 
-                # Timestamp über jeder Nachricht
-                st.caption(f"🕐 {ts_msg}")
+            st.caption(f"{len(pairs)} Gespräche · Sortierung: {sort_order}")
 
-                with st.chat_message(role):
-                    st.markdown(content)
+            for user_msg, asst_msg in pairs:
+                # Immer erst Frage, dann Antwort
+                if user_msg:
+                    ts_u = user_msg["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                    st.caption(f"🕐 {ts_u}")
+                    with st.chat_message("user"):
+                        st.markdown(user_msg["content"])
 
-                    # Quellen mit Medien-Wiedergabe
-                    if sources:
-                        with st.expander(f"📌 {len(sources)} Quellen"):
-                            for si, s in enumerate(sources):
-                                ct_s     = s.get("content_type", "?")
-                                sim_s    = s.get("similarity", 0)
-                                src_s    = s.get("source", "?")
-                                ts_s_val = s.get("timestamp_start")
-                                ts_e_val = s.get("timestamp_end")
-                                ts_str   = ""
-                                if ts_s_val is not None:
-                                    ts_str = f" · {fmt_ts(ts_s_val)}–{fmt_ts(ts_e_val)}"
+                if asst_msg:
+                    ts_a = asst_msg["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                    st.caption(f"🕐 {ts_a}")
+                    sources = asst_msg.get("sources") or []
+                    with st.chat_message("assistant"):
+                        st.markdown(asst_msg["content"])
 
-                                st.caption(
-                                    f"**{ct_s.upper()}** · {sim_s:.3f}{ts_str} · {src_s}"
-                                )
-
-                                mp_s = media_path(src_s)
-
-                                # Video-Player
-                                if ct_s == "video" and mp_s:
-                                    start_at = max(0, int(float(ts_s_val or 0)) - 10)
-                                    st.video(str(mp_s), start_time=start_at)
+                        if sources:
+                            with st.expander(f"📌 {len(sources)} Quellen"):
+                                for si, s in enumerate(sources):
+                                    ct_s     = s.get("content_type", "?")
+                                    sim_s    = s.get("similarity", 0)
+                                    src_s    = s.get("source", "?")
+                                    ts_s_val = s.get("timestamp_start")
+                                    ts_e_val = s.get("timestamp_end")
+                                    ts_str   = ""
                                     if ts_s_val is not None:
-                                        st.caption(
-                                            f"Fundstelle: {fmt_ts(ts_s_val)} – {fmt_ts(ts_e_val)} "
-                                            f"(Wiedergabe ab {fmt_ts(start_at)})"
-                                        )
+                                        ts_str = f" · {fmt_ts(ts_s_val)}–{fmt_ts(ts_e_val)}"
 
-                                # Audio-Player
-                                elif ct_s == "audio" and mp_s:
-                                    start_at = max(0, int(float(ts_s_val or 0)) - 10)
-                                    st.audio(str(mp_s), start_time=start_at)
-                                    if ts_s_val is not None:
-                                        st.caption(
-                                            f"Fundstelle: {fmt_ts(ts_s_val)} – {fmt_ts(ts_e_val)}"
-                                        )
-
-                                # Bild anzeigen
-                                elif ct_s == "image":
-                                    if s.get("file_data"):
-                                        try:
-                                            img_bytes = base64.b64decode(s["file_data"])
-                                            st.image(img_bytes, use_container_width=True)
-                                        except Exception:
-                                            pass
-                                    elif mp_s:
-                                        st.image(str(mp_s), use_container_width=True)
-
-                                # Text/PDF — Inhalt aufklappbar
-                                elif ct_s in {"text", "pdf"} and s.get("content"):
-                                    with st.expander("📝 Textauszug"):
-                                        st.text(s["content"][:1000])
-
-                                # Kein Original vorhanden
-                                elif ct_s in {"video", "audio"} and not mp_s:
                                     st.caption(
-                                        f"⚠️ Original '{src_s}' nicht in /media — "
-                                        "Datei neu hochladen für Wiedergabe."
+                                        f"**{ct_s.upper()}** · {sim_s:.3f}{ts_str} · {src_s}"
                                     )
+                                    mp_s = media_path(src_s)
 
-                                if si < len(sources) - 1:
-                                    st.divider()
+                                    if ct_s == "video" and mp_s:
+                                        start_at = max(0, int(float(ts_s_val or 0)) - 10)
+                                        st.video(str(mp_s), start_time=start_at)
+                                        if ts_s_val is not None:
+                                            st.caption(
+                                                f"Fundstelle: {fmt_ts(ts_s_val)} – {fmt_ts(ts_e_val)} "
+                                                f"(Wiedergabe ab {fmt_ts(start_at)})"
+                                            )
+                                    elif ct_s == "audio" and mp_s:
+                                        start_at = max(0, int(float(ts_s_val or 0)) - 10)
+                                        st.audio(str(mp_s), start_time=start_at)
+                                        if ts_s_val is not None:
+                                            st.caption(
+                                                f"Fundstelle: {fmt_ts(ts_s_val)} – {fmt_ts(ts_e_val)}"
+                                            )
+                                    elif ct_s == "image":
+                                        if s.get("file_data"):
+                                            try:
+                                                img_bytes = base64.b64decode(s["file_data"])
+                                                st.image(img_bytes, use_container_width=True)
+                                            except Exception:
+                                                pass
+                                        elif mp_s:
+                                            st.image(str(mp_s), use_container_width=True)
+                                    elif ct_s in {"text", "pdf"} and s.get("content"):
+                                        with st.expander("📝 Textauszug"):
+                                            st.text(s["content"][:1000])
+                                    elif ct_s in {"video", "audio"} and not mp_s:
+                                        st.caption(
+                                            f"⚠️ Original '{src_s}' nicht in /media — "
+                                            "Datei neu hochladen für Wiedergabe."
+                                        )
+                                    if si < len(sources) - 1:
+                                        st.divider()
+
+                st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

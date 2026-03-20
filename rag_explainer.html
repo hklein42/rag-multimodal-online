@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif}
+body{background:#0E1117;color:#FAFAFA;padding:16px}
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.dot{width:30px;height:30px;border-radius:50%;border:1px solid #444;background:#1C2033;color:#888;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.dot:hover{border-color:#7F77DD}
+.dot.active{background:#534AB7;color:#CECBF6;border-color:#534AB7}
+.dot.done{background:#0F6E56;color:#9FE1CB;border-color:#0F6E56}
+.stage{display:none;animation:fadeIn .3s ease}
+.stage.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.stitle{font-size:17px;font-weight:600;margin-bottom:4px;color:#FAFAFA}
+.ssub{font-size:13px;color:#888;margin-bottom:16px;line-height:1.6}
+.viz{width:100%;margin-bottom:16px;overflow:hidden}
+.detail{background:#1C2033;border:1px solid #2a2d3e;border-radius:8px;padding:12px 16px;font-size:13px;color:#aaa;line-height:1.7}
+.detail b{color:#FAFAFA;font-weight:600}
+.btns{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.btn{padding:7px 20px;border:1px solid #444;background:#1C2033;color:#FAFAFA;border-radius:8px;cursor:pointer;font-size:13px}
+.btn:hover{background:#2a2d3e}
+.btn.primary{background:#534AB7;color:#CECBF6;border-color:#534AB7}
+.btn.primary:hover{background:#3C3489}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;margin-right:8px}
+.pp{background:#26215C;color:#AFA9EC}
+.pt{background:#04342C;color:#5DCAA5}
+.pa{background:#412402;color:#FAC775}
+.pc{background:#4A1B0C;color:#F0997B}
+.pinfo{font-size:12px;color:#666}
+svg text{font-family:sans-serif}
+</style>
+</head>
+<body>
+<div class="nav" id="nav"></div>
+<div id="stages"></div>
+<script>
+const S=[
+{t:"1 — Nutzeranfrage & Tokenisierung",s:"Der Nutzer tippt eine Frage. Der Text wird in Tokens (Teilwörter) zerlegt — die atomaren Einheiten des Modells.",pc:"pp",pl:"Input",
+v:`<svg width="100%" viewBox="0 0 620 130">
+<rect x="10" y="20" width="600" height="50" rx="8" fill="#1C2033" stroke="#534AB7" stroke-width="0.5"/>
+<text x="30" y="42" font-size="14" fill="#CECBF6" font-weight="600">Was kann ich in der SU24 pflegen?</text>
+<text x="30" y="62" font-size="12" fill="#7F77DD">Tokenisierung ↓</text>
+${["Was","kann","ich","in","der","SU","##24","pfl","##eg","##en","?"].map((tk,i)=>`<rect x="${10+i*54}" y="85" width="50" height="24" rx="4" fill="#3C3489" stroke="none"/><text x="${10+i*54+25}" y="101" font-size="11" fill="#CECBF6" text-anchor="middle">${tk}</text>`).join("")}
+</svg>`,
+d:`Die Frage <b>"Was kann ich in der SU24 pflegen?"</b> wird tokenisiert. <b>SU24</b> → <b>SU</b> + <b>##24</b> (## = Fortsetzungstoken). Jeder Token bekommt eine ID aus dem Vokabular. Das Modell arbeitet nur mit diesen IDs — nie mit Rohtext.`},
+
+{t:"2 — Query-Embedding (3072 Dims)",s:"Gemini wandelt den Token-Strom in einen einzigen 3072-dimensionalen Vektor um — eine Koordinate im semantischen Raum.",pc:"pp",pl:"Embed",
+v:`<svg width="100%" viewBox="0 0 620 160">
+<defs><marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#534AB7" stroke-width="1.5"/></marker></defs>
+<rect x="10" y="55" width="120" height="50" rx="8" fill="#1C2033" stroke="#534AB7" stroke-width="0.5"/>
+<text x="70" y="78" font-size="12" fill="#CECBF6" text-anchor="middle" font-weight="600">Query-Text</text>
+<text x="70" y="96" font-size="11" fill="#7F77DD" text-anchor="middle">RETRIEVAL_QUERY</text>
+<path d="M132 80 L175 80" fill="none" stroke="#534AB7" stroke-width="1.5" marker-end="url(#a2)"/>
+<text x="153" y="73" font-size="10" fill="#534AB7" text-anchor="middle">Gemini</text>
+<rect x="177" y="55" width="130" height="50" rx="8" fill="#534AB7"/>
+<text x="242" y="78" font-size="12" fill="#EEEDFE" text-anchor="middle" font-weight="600">embed_query()</text>
+<text x="242" y="96" font-size="11" fill="#AFA9EC" text-anchor="middle">L2-normalisiert</text>
+<path d="M309 80 L352 80" fill="none" stroke="#534AB7" stroke-width="1.5" marker-end="url(#a2)"/>
+<rect x="354" y="40" width="246" height="80" rx="8" fill="#26215C"/>
+<text x="477" y="68" font-size="12" fill="#CECBF6" text-anchor="middle" font-weight="600">[0.42, -0.17, 0.83, …]</text>
+<text x="477" y="88" font-size="11" fill="#7F77DD" text-anchor="middle">3072 Dimensionen</text>
+<text x="477" y="108" font-size="10" fill="#534AB7" text-anchor="middle">gemini-embedding-2-preview</text>
+${Array.from({length:48},(_,i)=>{const h=6+Math.abs(Math.sin(i*.7+1)*20+Math.cos(i*.4)*14);const c=h>18?"#7F77DD":h>12?"#534AB7":"#3C3489";return`<rect x="${10+i*12}" y="${148-h}" width="10" height="${h}" rx="1" fill="${c}"/>`}).join("")}
+</svg>`,
+d:`<b>task_type="RETRIEVAL_QUERY"</b> ist entscheidend — das Modell optimiert den Vektor für Ähnlichkeitssuche, nicht für Dokumentspeicherung. Die <b>L2-Normalisierung</b> (numpy) stellt sicher, dass Cosinus-Ähnlichkeit = Skalarprodukt ist, was die pgvector-Suche präziser macht.`},
+
+{t:"3 — Cosinus-Suche in pgvector",s:"Der Query-Vektor wird mit allen 56 gespeicherten Embeddings verglichen. Der Operator <=> berechnet die Cosinus-Distanz.",pc:"pt",pl:"Search",
+v:`<svg width="100%" viewBox="0 0 620 175">
+<defs><marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#1D9E75" stroke-width="1.5"/></marker></defs>
+<rect x="10" y="60" width="105" height="55" rx="8" fill="#04342C" stroke="#1D9E75" stroke-width="0.5"/>
+<text x="62" y="83" font-size="12" fill="#9FE1CB" text-anchor="middle" font-weight="600">Query-Vektor</text>
+<text x="62" y="101" font-size="10" fill="#5DCAA5" text-anchor="middle">[0.42,-0.17…]</text>
+<path d="M117 87 L155 87" fill="none" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#a3)"/>
+<text x="136" y="80" font-size="10" fill="#1D9E75" text-anchor="middle">&lt;=&gt;</text>
+<rect x="157" y="10" width="300" height="155" rx="8" fill="#04342C" stroke="#1D9E75" stroke-width="0.5" stroke-dasharray="4,3"/>
+<text x="307" y="30" font-size="12" fill="#9FE1CB" text-anchor="middle" font-weight="600">pgvector — 56 Embeddings (Exact Search)</text>
+${[{y:45,sim:.76,l:"SU24 Berechtigungsobjekte…",c:"#1D9E75"},{y:75,sim:.72,l:"Rollenbau Best Practice…",c:"#5DCAA5"},{y:105,sim:.69,l:"Profilgenerator PFCG…",c:"#9FE1CB"},{y:130,sim:.44,l:"DSAG Prüfleitfaden…",c:"#E1F5EE"}].map(r=>`
+<rect x="168" y="${r.y}" width="${r.sim*270}" height="22" rx="3" fill="${r.c}" stroke="none" opacity="${r.sim>.6?1:.5}"/>
+<text x="174" y="${r.y+15}" font-size="11" fill="${r.sim>.6?"#04342C":"#085041"}">${r.l}</text>
+<text x="${168+r.sim*270+4}" y="${r.y+15}" font-size="11" fill="#1D9E75">${r.sim.toFixed(2)}</text>`).join("")}
+<path d="M459 87 L497 87" fill="none" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#a3)"/>
+<rect x="499" y="55" width="111" height="55" rx="8" fill="#085041"/>
+<text x="554" y="78" font-size="12" fill="#9FE1CB" text-anchor="middle" font-weight="600">Top-K Treffer</text>
+<text x="554" y="96" font-size="11" fill="#5DCAA5" text-anchor="middle">Threshold: 0.35</text>
+</svg>`,
+d:`<b>match_documents()</b> — PostgreSQL RPC — führt aus: <b>1 - (embedding &lt;=&gt; query_embedding) &gt;= threshold</b>. Kein HNSW-Index möglich bei 3072 Dims (pgvector-Limit: 2000) → <b>Exact Search</b>. Bei 56 Chunks sehr schnell; bei &gt;10.000 Chunks wäre IVFFlat sinnvoll.<br><br><b>Threshold (Standard: 0.35):</b> Nur Chunks mit einer Cosinus-Ähnlichkeit ≥ 0.35 werden zurückgegeben — alles darunter wird verworfen. Einstellbar über den Similarity-Threshold-Slider in der RAG-App.`},
+
+{t:"4 — Chunk-Retrieval mit Timestamps",s:"Die Top-K Chunks werden geladen — Transkripttext, Zeitstempel, Quelle. Jeder Chunk deckt ein Zeitfenster im Originalvideo ab.",pc:"pt",pl:"Retrieve",
+v:`<svg width="100%" viewBox="0 0 620 155">
+${[{x:10,ts:"02:07–04:14",sim:.76,txt:"...Berechtigungsvorschlagswerte in der SU24 definieren und Werte hinterlegen...",c:"#1D9E75"},{x:215,ts:"08:20–10:24",sim:.72,txt:"...ob ein Objekt geprüft oder nicht geprüft werden soll, einstellen...",c:"#5DCAA5"},{x:420,ts:"04:14–06:16",sim:.69,txt:"...kleinsten gemeinsamen Nenner für Berechtigungsobjekte pflegen...",c:"#9FE1CB"}].map(d=>`
+<rect x="${d.x}" y="10" width="195" height="135" rx="8" fill="#04342C" stroke="${d.c}" stroke-width="0.5"/>
+<rect x="${d.x}" y="10" width="195" height="28" rx="8" fill="${d.c}"/>
+<rect x="${d.x}" y="28" width="195" height="10" fill="${d.c}"/>
+<text x="${d.x+14}" y="29" font-size="11" fill="#04342C" font-weight="600">VIDEO  sim:${d.sim}</text>
+<text x="${d.x+14}" y="58" font-size="13" fill="#9FE1CB" font-weight="600">⏱ ${d.ts}</text>
+<text x="${d.x+14}" y="80" font-size="11" fill="#5DCAA5">${d.txt.substring(0,34)}</text>
+<text x="${d.x+14}" y="96" font-size="11" fill="#5DCAA5">${d.txt.substring(34,68)}...</text>
+<text x="${d.x+14}" y="130" font-size="10" fill="#1D9E75">SU24_Xiting_Xpert-1.mp4</text>`).join("")}
+</svg>`,
+d:`Jeder Chunk: <b>content</b> (Whisper-Transkript), <b>timestamp_start/end</b>, <b>source</b> (Dateiname), <b>similarity</b>. Der Video-Player in der Such-App springt <b>10 Sekunden vor den Timestamp</b> — du siehst den Kontext der Fundstelle direkt im Originalvideo.`},
+
+{t:"5 — Kontext-Assembly & System-Prompt",s:"Chunks werden strukturiert zusammengebaut. System-Prompt + Kontext + Frage → eine einzige LLM-Anfrage.",pc:"pa",pl:"Assemble",
+v:`<svg width="100%" viewBox="0 0 620 180">
+<defs><marker id="a5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#BA7517" stroke-width="1.5"/></marker></defs>
+<rect x="10" y="10" width="170" height="160" rx="8" fill="#1C1400" stroke="#BA7517" stroke-width="0.5"/>
+<text x="95" y="32" font-size="12" fill="#FAC775" text-anchor="middle" font-weight="600">System Prompt</text>
+<text x="20" y="52" font-size="10" fill="#EF9F27">Beantworte nur aus dem</text>
+<text x="20" y="67" font-size="10" fill="#EF9F27">Kontext. Kein eigenes</text>
+<text x="20" y="82" font-size="10" fill="#EF9F27">Wissen verwenden.</text>
+<text x="20" y="102" font-size="10" fill="#BA7517">Zitiere mit:</text>
+<text x="20" y="117" font-size="10" fill="#BA7517">[Quelle: Datei,</text>
+<text x="20" y="132" font-size="10" fill="#BA7517">Typ, Zeitstempel]</text>
+<text x="20" y="152" font-size="10" fill="#854F0B">Deutsch bevorzugt</text>
+<rect x="198" y="10" width="200" height="160" rx="8" fill="#1C1400" stroke="#EF9F27" stroke-width="0.5"/>
+<text x="298" y="32" font-size="12" fill="#FAC775" text-anchor="middle" font-weight="600">User Message</text>
+<text x="210" y="52" font-size="10" fill="#FAC775">Frage: Was kann ich in</text>
+<text x="210" y="67" font-size="10" fill="#FAC775">der SU24 pflegen?</text>
+<text x="210" y="87" font-size="10" fill="#BA7517">--- Dokument 1 ---</text>
+<text x="210" y="102" font-size="10" fill="#EF9F27">Typ: video | sim: 0.76</text>
+<text x="210" y="117" font-size="10" fill="#EF9F27">Zeit: 02:07–04:14</text>
+<text x="210" y="132" font-size="10" fill="#854F0B">Inhalt: ...Berechtigungs-</text>
+<text x="210" y="147" font-size="10" fill="#854F0B">vorschlagswerte...</text>
+<path d="M400 90 L438 90" fill="none" stroke="#BA7517" stroke-width="1.5" marker-end="url(#a5)"/>
+<rect x="440" y="30" width="168" height="120" rx="8" fill="#412402"/>
+<text x="524" y="72" font-size="13" fill="#FAC775" text-anchor="middle" font-weight="600">Gemini Flash Lite</text>
+<text x="524" y="92" font-size="11" fill="#EF9F27" text-anchor="middle">oder o4-mini</text>
+<text x="524" y="114" font-size="10" fill="#BA7517" text-anchor="middle">max_tokens: 2048</text>
+<text x="524" y="132" font-size="10" fill="#854F0B" text-anchor="middle">Grounded Reasoning</text>
+</svg>`,
+d:`Das Modell sieht <b>nur den bereitgestellten Kontext</b> — kein Internet, kein Training-Wissen. Der System-Prompt erzwingt Quellenangaben mit Zeitstempel. So entsteht eine <b>prüfbare, nachvollziehbare Antwort</b> statt einer halluzinierten.`},
+
+{t:"6 — Grounded Antwort mit Zeitstempel-Zitaten",s:"Das Modell generiert eine Antwort die ausschließlich auf den Chunks basiert — mit präzisen Zeitstempel-Zitaten für jede Aussage.",pc:"pa",pl:"Generate",
+v:`<svg width="100%" viewBox="0 0 620 185">
+<rect x="10" y="10" width="600" height="165" rx="8" fill="#1C1400" stroke="#BA7517" stroke-width="0.5"/>
+<rect x="10" y="10" width="600" height="30" rx="8" fill="#BA7517"/>
+<rect x="10" y="30" width="600" height="10" fill="#BA7517"/>
+<text x="310" y="30" font-size="13" fill="#FAEEDA" text-anchor="middle" font-weight="600">KI-Antwort (Gemini Flash Lite)</text>
+<text x="24" y="62" font-size="12" fill="#FAC775">In der Transaktion SU24 können Sie für jede SAP-Anwendung definieren,</text>
+<text x="24" y="78" font-size="12" fill="#FAC775">welche Berechtigungsobjekte geprüft werden und Werte hinterlegen</text>
+<rect x="24" y="85" width="490" height="18" rx="3" fill="#EF9F27" opacity="0.2"/>
+<text x="28" y="98" font-size="10" fill="#EF9F27">[Quelle: 001-Best_Practice...mp4, Typ: video, 02:07 – 04:14]</text>
+<text x="24" y="118" font-size="12" fill="#FAC775">Sie können auch einstellen, ob ein Objekt geprüft werden soll.</text>
+<rect x="24" y="125" width="430" height="18" rx="3" fill="#EF9F27" opacity="0.2"/>
+<text x="28" y="138" font-size="10" fill="#EF9F27">[Quelle: 001-Best_Practice...mp4, Typ: video, 08:20 – 10:24]</text>
+<text x="24" y="162" font-size="11" fill="#854F0B">→ Klick auf Quelle öffnet Video-Player direkt an der Fundstelle (−10s)</text>
+</svg>`,
+d:`Jede Aussage ist mit <b>Dateiname + Zeitstempel</b> belegt. In der App öffnet ein Klick auf den Expander den <b>st.video(start_time=)</b>-Player direkt bei der Fundstelle. Das ist der Kernvorteil von RAG gegenüber einem reinen LLM: <b>Nachprüfbarkeit</b>.`},
+
+{t:"7 — Ingest-Pipeline (Upload → Vektor)",s:"Beim Upload transkribiert Whisper das Video, der Text wird in 120s-Chunks aufgeteilt, eingebettet und mit Timestamps in pgvector gespeichert.",pc:"pc",pl:"Ingest",
+v:`<svg width="100%" viewBox="0 0 620 165">
+<defs><marker id="a7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#993C1D" stroke-width="1.5"/></marker></defs>
+${[<rect x="10" y="30" width="110" height="105" rx="8" fill="#FAECE7"/>
+<text x="65" y="70" font-size="13" fill="#712B13" text-anchor="middle" font-weight="600">MP4</text>
+<text x="65" y="87" font-size="10" fill="#712B13" text-anchor="middle">Upload</text>
+<text x="65" y="102" font-size="10" fill="#712B13" text-anchor="middle">/media</text>
+<path d="M122 82 L128 82" fill="none" stroke="#993C1D" stroke-width="1.5" marker-end="url(#a7)"/>
+<rect x="130" y="30" width="110" height="105" rx="8" fill="#F0997B"/>
+<text x="185" y="63" font-size="13" fill="#4A1B0C" text-anchor="middle" font-weight="600">Whisper</text>
+<text x="185" y="81" font-size="10" fill="#4A1B0C" text-anchor="middle">Transkription</text>
+<text x="185" y="96" font-size="10" fill="#4A1B0C" text-anchor="middle">+ Timestamps</text>
+<path d="M242 82 L248 82" fill="none" stroke="#993C1D" stroke-width="1.5" marker-end="url(#a7)"/>
+<rect x="250" y="30" width="110" height="105" rx="8" fill="#D85A30"/>
+<text x="305" y="63" font-size="13" fill="#FAECE7" text-anchor="middle" font-weight="600">Chunking</text>
+<text x="305" y="81" font-size="10" fill="#FAECE7" text-anchor="middle">120s Segmente</text>
+<text x="305" y="96" font-size="10" fill="#FAECE7" text-anchor="middle">Text-Overlap</text>
+<path d="M362 82 L368 82" fill="none" stroke="#993C1D" stroke-width="1.5" marker-end="url(#a7)"/>
+<rect x="370" y="30" width="110" height="105" rx="8" fill="#993C1D"/>
+<text x="425" y="63" font-size="13" fill="#FAECE7" text-anchor="middle" font-weight="600">Gemini</text>
+<text x="425" y="81" font-size="10" fill="#FAECE7" text-anchor="middle">embed_document</text>
+<text x="425" y="96" font-size="10" fill="#FAECE7" text-anchor="middle">3072 dims</text>
+<path d="M482 82 L488 82" fill="none" stroke="#993C1D" stroke-width="1.5" marker-end="url(#a7)"/>
+<rect x="490" y="30" width="120" height="105" rx="8" fill="#712B13"/>
+<text x="550" y="63" font-size="13" fill="#FAECE7" text-anchor="middle" font-weight="600">pgvector</text>
+<text x="550" y="81" font-size="10" fill="#FAECE7" text-anchor="middle">content + embedding</text>
+<text x="550" y="96" font-size="10" fill="#FAECE7" text-anchor="middle">ts_start / ts_end</text>
+<text x="310" y="155" font-size="11" fill="#993C1D" text-anchor="middle">Originaldatei bleibt in /media — wird nicht gelöscht</text>
+</svg>`,
+d:`Designentscheid: <b>Videos nicht als Binärdaten einbetten</b> — zu groß, semantisch schwach. Stattdessen: <b>Whisper-1 transkribiert</b> die Sprache mit Segment-Timestamps. Der Text wird eingebettet, das Original bleibt für st.video(). So sucht das System über Sprache und spielt das Original ab.`}
+];
+
+const nav=document.getElementById("nav"),stgs=document.getElementById("stages");
+let cur=0;
+S.forEach((s,i)=>{
+  const d=document.createElement("div");
+  d.className="dot"+(i===0?" active":"");
+  d.textContent=i+1;d.onclick=()=>go(i);nav.appendChild(d);
+  const v=document.createElement("div");
+  v.className="stage"+(i===0?" active":"");
+  v.innerHTML=`<div style="display:flex;align-items:center;margin-bottom:8px"><span class="pill ${s.pc}">${s.pl}</span><span class="stitle">${s.t}</span></div>
+<p class="ssub">${s.s}</p><div class="viz">${s.v}</div><div class="detail">${s.d}</div>
+<div class="btns">
+<button class="btn" onclick="go(${i-1})" ${i===0?'style="visibility:hidden"':''}>← Zurück</button>
+<span class="pinfo">${i+1} / ${S.length}</span>
+${i<S.length-1?`<button class="btn primary" onclick="go(${i+1})">Weiter →</button>`:`<button class="btn primary" onclick="go(0)">↺ Neu starten</button>`}
+</div>`;
+  stgs.appendChild(v);
+});
+function go(i){
+  if(i<0||i>=S.length)return;
+  document.querySelectorAll(".stage")[cur].classList.remove("active");
+  document.querySelectorAll(".dot")[cur].classList.remove("active");
+  if(cur<i)document.querySelectorAll(".dot")[cur].classList.add("done");
+  cur=i;
+  document.querySelectorAll(".stage")[cur].classList.add("active");
+  document.querySelectorAll(".dot").forEach((d,j)=>{d.classList.toggle("active",j===cur);d.classList.toggle("done",j<cur)});
+}
+</script>
+</body>
+</html>

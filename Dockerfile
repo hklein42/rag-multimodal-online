@@ -1,22 +1,36 @@
-FROM python:3.11-slim
+# transformer-explainer.Dockerfile
+# SvelteKit Static Build → Nginx
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    libmagic1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# imageio-ffmpeg und moviepy auf System-ffmpeg zwingen
-ENV IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-RUN mkdir -p /app/media
+COPY transformer-explainer/package.json transformer-explainer/package-lock.json ./
 
-EXPOSE 8501
-CMD ["streamlit", "run", "app.py", \
-     "--server.address=0.0.0.0", \
-     "--server.port=8501", \
-     "--server.maxUploadSize=300"]
+# --legacy-peer-deps löst vite@5 vs vite-plugin-svelte@6 Konflikt
+RUN npm ci --legacy-peer-deps
+
+COPY transformer-explainer/ .
+
+RUN npm run build
+
+# ── Stage 2: Serve ────────────────────────────────────────────────────────────
+FROM nginx:alpine
+
+COPY --from=builder /app/build /usr/share/nginx/html
+
+RUN printf 'server {\n\
+    listen 80;\n\
+    root /usr/share/nginx/html;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|wasm)$ {\n\
+        expires 1y;\n\
+        add_header Cache-Control "public, immutable";\n\
+    }\n\
+}\n' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

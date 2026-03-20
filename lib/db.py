@@ -305,3 +305,106 @@ def add_message(
         )
     conn.commit()
     return mid
+
+
+# ── Visualisierung & Statistiken ──────────────────────────────────────────────
+
+def get_embeddings_for_viz(limit: int = 2000) -> list[dict]:
+    """
+    Gibt Embeddings + Metadaten für UMAP-Visualisierung zurück.
+    Limit auf 2000 — UMAP wird oberhalb langsam.
+    """
+    with _cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, content_type, source,
+                   LEFT(content, 80) AS preview,
+                   timestamp_start, timestamp_end,
+                   embedding::text AS embedding_text
+            FROM documents
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+        # embedding_text ist "[0.1,0.2,...]" — in float-Liste konvertieren
+        import json
+        for r in rows:
+            raw = r.pop("embedding_text", "[]")
+            r["embedding"] = json.loads(raw)
+        return rows
+
+
+def get_db_stats() -> dict:
+    """
+    Umfangreiche DB-Statistiken:
+    - Tabellengröße in MB
+    - Anzahl Chunks pro Typ
+    - Einzigartige Quellen
+    - Größte Quellen
+    - Chat-Session-Statistiken
+    """
+    with _cursor() as cur:
+        # Tabellengröße
+        cur.execute(
+            """
+            SELECT
+                pg_size_pretty(pg_total_relation_size('documents'))   AS documents_size,
+                pg_total_relation_size('documents')                    AS documents_bytes,
+                pg_size_pretty(pg_total_relation_size('chat_messages')) AS chat_size,
+                pg_total_relation_size('chat_messages')                AS chat_bytes,
+                pg_size_pretty(pg_database_size(current_database()))  AS total_db_size,
+                pg_database_size(current_database())                   AS total_db_bytes
+            """
+        )
+        sizes = dict(cur.fetchone())
+
+        # Chunks pro Typ
+        cur.execute(
+            """
+            SELECT content_type,
+                   COUNT(*)                    AS chunks,
+                   COUNT(DISTINCT source)      AS sources,
+                   AVG(LENGTH(content))::INT   AS avg_content_len
+            FROM documents
+            GROUP BY content_type
+            ORDER BY chunks DESC
+            """
+        )
+        by_type = [dict(r) for r in cur.fetchall()]
+
+        # Top 10 größte Quellen
+        cur.execute(
+            """
+            SELECT source, content_type,
+                   COUNT(*) AS chunks,
+                   MIN(timestamp_start) AS ts_start,
+                   MAX(timestamp_end)   AS ts_end
+            FROM documents
+            GROUP BY source, content_type
+            ORDER BY chunks DESC
+            LIMIT 10
+            """
+        )
+        top_sources = [dict(r) for r in cur.fetchall()]
+
+        # Chat-Statistiken
+        cur.execute(
+            """
+            SELECT
+                COUNT(DISTINCT session_id) AS sessions,
+                COUNT(*)                   AS total_messages,
+                COUNT(*) FILTER (WHERE role = 'user')      AS user_messages,
+                COUNT(*) FILTER (WHERE role = 'assistant') AS ai_messages
+            FROM chat_messages
+            """
+        )
+        chat_stats = dict(cur.fetchone())
+
+    return {
+        "sizes":       sizes,
+        "by_type":     by_type,
+        "top_sources": top_sources,
+        "chat_stats":  chat_stats,
+    }

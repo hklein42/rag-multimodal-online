@@ -18,6 +18,40 @@ services:
     networks:
       - rag_network
 
+  viz:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-viz
+    command: ["streamlit", "run", "3dv.py",
+              "--server.address=0.0.0.0",
+              "--server.port=8502",
+              "--server.maxUploadSize=10"]
+    ports:
+      - "8502:8502"
+    env_file:
+      - .env
+    volumes:
+      - media_data:/app/media
+      - snap_data:/app/snapshots
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rag_network
+
+  transformer-explainer:
+    build:
+      context: .
+      dockerfile: transformer-explainer.Dockerfile
+    container_name: rag-transformer-explainer
+    ports:
+      - "8503:80"
+    restart: unless-stopped
+    networks:
+      - rag_network
+
   db:
     image: pgvector/pgvector:pg16
     container_name: rag-pgvector-db
@@ -41,8 +75,9 @@ services:
       - rag_network
 
 volumes:
-  media_data:           # Docker Desktop verwaltet dieses Volume selbst
-  db_data:              # Docker Desktop verwaltet dieses Volume selbst
+  media_data:
+  db_data:
+  snap_data:
 
 networks:
   rag_network:
