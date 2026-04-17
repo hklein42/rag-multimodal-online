@@ -1,6 +1,6 @@
-# RAG Multimodal — SAP Knowledge Assistant
+# RAG Multimodal — Knowledge Assistant
 
-Ein multimodales Retrieval-Augmented Generation (RAG) System für SAP-Berechtigungsthemen. Verarbeitet Videos, PDFs, Bilder und Texte — durchsucht sie semantisch und beantwortet Fragen mit Zeitstempel-genauen Quellenangaben.
+Ein multimodales Retrieval-Augmented Generation (RAG) System für beliebige Themen. Verarbeitet Videos, PDFs, Bilder und Texte — durchsucht sie semantisch und beantwortet Fragen mit Zeitstempel-genauen Quellenangaben.
 
 ---
 
